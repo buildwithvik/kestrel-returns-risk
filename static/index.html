@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kestrel Returns Risk</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+  h1 { font-size: 22px; }
+  .sub { color: #666; margin-bottom: 24px; }
+  label { display: block; margin-top: 12px; font-size: 13px; font-weight: 600; color: #444; }
+  input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button { margin-top: 20px; padding: 10px 20px; background: #1a1a1a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button:hover { background: #333; }
+  #result { margin-top: 24px; padding: 16px; border-radius: 8px; display: none; }
+  .risk-LOW { background: #e8f5e9; border: 1px solid #a5d6a7; }
+  .risk-MEDIUM { background: #fff8e1; border: 1px solid #ffcc80; }
+  .risk-HIGH { background: #ffebee; border: 1px solid #ef9a9a; }
+  .score-big { font-size: 32px; font-weight: 700; }
+  .action-tag { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 12px; background: #1a1a1a; color: white; }
+  ul { margin: 8px 0 0 0; padding-left: 20px; }
+  #error { color: #c62828; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+  <h1>Kestrel Returns Risk — Order Scorer</h1>
+  <div class="sub">Enter an order's details to get a return-risk score, recommended action, and reasons.</div>
+
+  <label>Order ID</label>
+  <input id="order_id" value="TEST-001">
+
+  <div class="row">
+    <div>
+      <label>Payment mode</label>
+      <select id="payment_mode">
+        <option value="cod">Cash on delivery</option>
+        <option value="prepaid_upi">Prepaid — UPI</option>
+        <option value="prepaid_card">Prepaid — Card</option>
+        <option value="emi">EMI</option>
+      </select>
+    </div>
+    <div>
+      <label>Sales channel</label>
+      <select id="sales_channel">
+        <option value="app">App</option>
+        <option value="web">Web</option>
+        <option value="marketplace">Marketplace</option>
+        <option value="partner_outlet">Partner outlet</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Product family</label>
+      <select id="family">
+        <option value="Air Fryer">Air Fryer</option>
+        <option value="Robot Vacuum">Robot Vacuum</option>
+        <option value="Water Purifier">Water Purifier</option>
+        <option value="Room Heater">Room Heater</option>
+        <option value="Mixer Grinder">Mixer Grinder</option>
+        <option value="Ceiling Fan">Ceiling Fan</option>
+        <option value="Induction Cooktop">Induction Cooktop</option>
+      </select>
+    </div>
+    <div>
+      <label>SKU</label>
+      <input id="sku" value="KH-AF-01">
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Order value (Rs)</label>
+      <input id="order_value_inr" type="number" value="4500">
+    </div>
+    <div>
+      <label>Discount %</label>
+      <input id="discount_pct" type="number" value="10">
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Customer's prior orders</label>
+      <input id="customer_prior_orders" type="number" value="0">
+    </div>
+    <div>
+      <label>Customer's prior returns</label>
+      <input id="customer_prior_returns" type="number" value="0">
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Shield member?</label>
+      <select id="shield_member">
+        <option value="N">No</option>
+        <option value="Y">Yes</option>
+      </select>
+    </div>
+    <div>
+      <label>Is gift?</label>
+      <select id="is_gift">
+        <option value="N">No</option>
+        <option value="Y">Yes</option>
+      </select>
+    </div>
+  </div>
+
+  <label>Promised delivery days</label>
+  <input id="promised_delivery_days" type="number" value="4">
+
+  <label>Delivery pincode (0 = no address on file)</label>
+  <input id="delivery_pincode" type="number" value="560001">
+
+  <button onclick="scoreOrder()">Score this order</button>
+  <div id="error"></div>
+  <div id="result"></div>
+
+<script>
+async function scoreOrder() {
+  const payload = {
+    order_id: document.getElementById('order_id').value,
+    order_placed_at: new Date().toISOString(),
+    customer_id: "MANUAL-ENTRY",
+    sku: document.getElementById('sku').value,
+    sales_channel: document.getElementById('sales_channel').value,
+    payment_mode: document.getElementById('payment_mode').value,
+    discount_pct: parseInt(document.getElementById('discount_pct').value),
+    qty: 1,
+    order_value_inr: parseFloat(document.getElementById('order_value_inr').value),
+    promised_delivery_days: parseInt(document.getElementById('promised_delivery_days').value),
+    delivery_pincode: parseInt(document.getElementById('delivery_pincode').value),
+    is_gift: document.getElementById('is_gift').value,
+    customer_prior_orders: parseInt(document.getElementById('customer_prior_orders').value),
+    customer_prior_returns: parseInt(document.getElementById('customer_prior_returns').value),
+    source: "crm",
+    shield_member: document.getElementById('shield_member').value,
+    family: document.getElementById('family').value,
+  };
+
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('result').style.display = 'none';
+
+  try {
+    const resp = await fetch('/score_order', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || 'Request failed');
+    }
+    const data = await resp.json();
+    const el = document.getElementById('result');
+    el.className = 'risk-' + data.risk_level;
+    el.innerHTML = `
+      <div class="score-big">${(data.score*100).toFixed(1)}% risk</div>
+      <div>Risk level: <b>${data.risk_level}</b> &nbsp; Recommended action: <span class="action-tag">${data.recommended_action}</span></div>
+      <div style="margin-top:10px;"><b>Reasons:</b>
+        <ul>${data.reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+      </div>
+    `;
+    el.style.display = 'block';
+  } catch (e) {
+    const errEl = document.getElementById('error');
+    errEl.textContent = 'Error: ' + e.message + ' (is the model trained? run clean_data.py, train_model.py first)';
+    errEl.style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>
